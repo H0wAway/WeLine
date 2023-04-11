@@ -90,19 +90,23 @@ public class NioServer {
             String[] login = message.split(" ");
             String user = login[0];
             String pwd = login[1];
-            if (userInfo.containsKey(user)) {
-                client.write(charset.encode("当前用户已存在，请重新输入用户名："));
-            } else if (!userInfo.get(user).equals(pwd)) {
+            if (userInfo.containsKey(user) && userInfo.get(user).equals(pwd)) {
+                // |字符来作为消息之间的分割符,防止黏包
+                client.write(charset.encode("成功登陆 " + user + "|"));
+                String welCome =
+                    "\t欢迎'" + user + "'上线，当前在线人数" + getOnLineNum() + "人。用户列表：" + onlineUsers.keySet().toString();
+                broadCast(welCome + "|"); // 给所用用户推送上线信息，包括自己
+            } else if (userInfo.containsKey(user) && !userInfo.get(user).equals(pwd)) {
                 client.write(charset.encode("用户名或密码错误，请重新输入用户名和密码："));
             } else {
                 onlineUsers.put(user, client);
                 key.attach(user); // 给通道定义一个表示符
                 userInfo.put(user, pwd);
-                // |字符来作为消息之间的分割符
+
                 client.write(charset.encode("成功登陆 " + user + "|"));
                 String welCome =
-                    "\t欢迎'" + user + "'上线，当前在线人数" + this.getOnLineNum() + "人。用户列表：" + onlineUsers.keySet().toString();
-                this.broadCast(welCome + "|"); // 给所用用户推送上线信息，包括自己
+                    "\t欢迎'" + user + "'上线，当前在线人数" + getOnLineNum() + "人。用户列表：" + onlineUsers.keySet().toString();
+                broadCast(welCome + "|");
             }
         } else if (msgArray.length == 3) {
             String user_to = msgArray[0];

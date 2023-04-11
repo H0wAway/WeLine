@@ -16,7 +16,7 @@ public class Message {
     }
 
     public String getMessage() {
-        return date.toString() + "--" + userName + "--" + userTarget + "--" + data;
+        return date.toString() + "--" + userName + "--" + userTarget + "--" + data + "    ";
     }
 
     public String getUserName() {
