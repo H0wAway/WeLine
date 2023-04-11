@@ -1,7 +1,5 @@
-import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.StandardSocketOptions;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
@@ -9,8 +7,6 @@ import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
 import java.util.Iterator;
 import java.util.Scanner;
-
-import cn.hutool.core.io.FileUtil;
 
 public class Client {
 
@@ -22,7 +18,7 @@ public class Client {
     private ByteBuffer buffer = ByteBuffer.allocate(1024);
     private SocketChannel clientChannel;
     private Selector selector;
-    private String name = "";
+    private String myName = "";
     private boolean flag = true; // 服务端断开，客户端的读事件不会一直发生（与服务端不一样）
 
     Scanner scanner = new Scanner(System.in);
@@ -35,8 +31,6 @@ public class Client {
         clientChannel = SocketChannel.open(new InetSocketAddress(port));
         // 3.配置此channel非阻塞
         clientChannel.configureBlocking(false);
-        clientChannel.setOption(StandardSocketOptions.SO_KEEPALIVE, true);
-        clientChannel.setOption(StandardSocketOptions.TCP_NODELAY, true);
         // 4.将channel的读事件注册到选择器
         clientChannel.register(selector, SelectionKey.OP_READ);
 
@@ -46,19 +40,21 @@ public class Client {
          */
         new Thread(new ClientReadThread()).start();
         String input = "";
+
         while (flag) {
             input = scanner.nextLine();
             // 输入标准格式为 目标|内容
             if ("".equals(input)) {
                 System.out.println("输入为空白！");
                 continue;
-                // 如果姓名没有初始化，且长度为1.说明当前在设置姓名
-            } else if ("".equals(name) && input.split("[|]").length == 1) {
-                // 如果姓名已经初始化过了，且长度为2.说明这是正常的发送格式
-            } else if (!"".equals(name) && input.split("[|]").length == 2) {
-                input = input + "|" + name;
+                // 名字没有初始化，且长度为1 --> 当前在设置姓名
+            } else if ("".equals(myName) && input.split("[|]").length == 1) {
+                // 名字已经初始化过了，且长度为2 --> 正确的发送格式
+            } else if (!"".equals(myName) && input.split("[|]").length == 2) {
+                input = input + "|" + myName;
             } else {
                 System.out.println("输入不合法，请重新输入：");
+
                 continue;
             }
             try {
@@ -100,12 +96,12 @@ public class Client {
                             }
                             String[] strArray = msg.toString().split("[|]");
                             for (String message : strArray) {
-                                if (message.equals(""))
+                                if (message == "")
                                     continue;
-                                if (message.contains("您的昵称通过验证")) {
+                                if (message.contains("成功登陆")) {
                                     String[] nameValid = message.split(" ");
-                                    name = nameValid[1];
-                                    key.attach(name);
+                                    myName = nameValid[1];
+                                    key.attach(myName);
                                 }
                                 System.out.println(message);
                             }
@@ -117,11 +113,6 @@ public class Client {
                 e.printStackTrace();
             }
         }
-    }
-
-    public void chatQueryPrint() {
-        String jsonStr = FileUtil.readUtf8String(new File("ChatQuery.json"));
-        System.out.println(jsonStr);
     }
 
     private void stopMainThread() {

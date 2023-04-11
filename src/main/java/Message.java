@@ -13,11 +13,10 @@ public class Message {
         this.userTarget = fullName2;
         this.date = date;
         this.data = data;
-
     }
 
     public String getMessage() {
-        return "日期：" + date.toString() + "|目标：" + userTarget + "|内容：" + data;
+        return date.toString() + "--" + userName + "--" + userTarget + "--" + data;
     }
 
     public String getUserName() {
