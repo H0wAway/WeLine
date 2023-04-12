@@ -1,4 +1,4 @@
-# 设计文档
+# WeLine (demo)
 
 # 一、需求分析
 
@@ -35,17 +35,15 @@
 
 ## 3. 服务器：只创建一个线程用以监听客户端信息，根据信息头作不同处理。
 
-1. hashMap1存放客户端信息,hashMap2存放用户聊天记录Message.
-2. 将Target当做标志位，接收到USER_LOGIN标识后，调用Login方法，解析data中存储的用户名和密码。
-3. 一般标志位，则将Message存入Map2
-4. 接收到USER_QUERY标识后，调用QUERY方法，遍历Map2中该用户的聊天记录。
+1. hashMap1存放客户端信息,chatList存放用户聊天记录Message.
+2. 将Target当做标志位，接收到Server标识后，调用Query()方法，查询聊天记录。
+3. 一般标志位，则将Message存入chatList
 
 ## 4. 客户端：共有两个线程，一个线程用来监听服务器发来的信息，一个线程用于从控制台读取输入。
 
 1. 创建客户端对象，通过TCP协议链接Server
-2. 注册登录LOGIN()
-3. 信息接收read()接收Message后，输出为 dataSource : data
-4. 聊天记录QUERY()
+2. 消息格式：用户名|内容
+3. 当用户名为Server时，查询聊天记录。
 
 
 
