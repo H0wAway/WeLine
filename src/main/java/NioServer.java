@@ -77,10 +77,12 @@ public class NioServer {
                                     userInfo.put ( inst[1],inst[1] );
                                     clientChannel.write ( charset.encode ( "/Pwd|"+inst[1]+"|Next step." ) );
                                 }
+                                break;
                             case "PWD":
                                 userInfo.put ( inst[1],inst[2] );
                                 clientChannel.write ( charset.encode ( "/Success|"+inst[1]+"|SIGNUP SUCCESS." ) );
                                 onlineUsers.put(inst[1], clientChannel);
+                                break;
                                 // 登陆
                             case "LOGIN":
                                 String s = "";
@@ -97,14 +99,17 @@ public class NioServer {
                                     broadCast(welCome + "|");
                                 }
                                 clientChannel.write ( charset.encode ( s ) );
+                                break;
                             case "LOGOFF":
                                 onlineUsers.remove ( inst[1] );
+                                break;
 
                             case "EXIT":
                                 HashMap<String,Date> chat1 =new HashMap<> (  );
                                 chat1.put ( inst[1], new Date() );
                                 groupMap.replace ( inst[2], chat1 );
                                 clientChannel.write ( charset.encode ( "/exit|" ) );
+                                break;
                             case "CHAT":
 
                                 HashMap<String,Date> chats =new HashMap<> (  );
@@ -112,9 +117,11 @@ public class NioServer {
                                 chats.put ( inst[2], new Date() );
                                 groupMap.put ( inst[1],chats );
                                 clientChannel.write ( charset.encode ( "Please input your message:" ) );
+                                break;
 
                             case "GROUP":
                                 groupMap.put(inst[1],new HashMap<> ());
+                                break;
                             case "ADD":
                                 String[] players = inst[2].split( " " );
                                 HashMap<String,Date> groups =new HashMap<> (  );
@@ -122,6 +129,7 @@ public class NioServer {
                                     groups.put ( player , new Date ( ) );
                                 }
                                 groupMap.put ( inst[1],groups );
+                                break;
                             case "MESSAGE":
                                 String groupName = inst[1];
                                 String msg = inst[2];
@@ -138,6 +146,7 @@ public class NioServer {
                                         channel_to.write ( charset.encode ( msg ) );
                                     }
                                 }
+                                break;
                             case "HISTORY":
                                 String Target = inst[1];
                                 for (Message msgQuery : chatList) {
@@ -145,6 +154,7 @@ public class NioServer {
                                         clientChannel.write(charset.encode(msgQuery.getMessage ()));
                                     }
                                 }
+                                break;
                         }
                     }
                 }

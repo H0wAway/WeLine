@@ -1,4 +1,3 @@
-import java.io.Console;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
@@ -6,15 +5,17 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Scanner;
 
 import org.apache.commons.lang.StringUtils;
 
+/**
+ * @author haowei.chu
+ */
 public class Client {
     private final Charset charset = Charset.forName("UTF-8");
-    private ByteBuffer buffer = ByteBuffer.allocate(1024);
+    private ByteBuffer buffer = ByteBuffer.allocate(124);
     private SocketChannel clientChannel;
     private Selector selector;
     private String myName = "";
@@ -52,14 +53,15 @@ public class Client {
                                         " <user2>...  --(only)Manager invite users\n/history                 -" +
                                         "-Query chat records\n/cancel <groupName>      --(only)Manager dissolve" +
                                         " group chat \n/exit                    --Close current chat");
+                        break;
                         // 登录
                     case "/login":
                         if(!isRegister){
                             input="LOGIN|"+login ();
                         }else{
                             System.out.println ( "Already logged, input '/logoff' to log off." );
-                            continue;
                         }
+                        break;
 
                         // 注册
                     case "/signup":
@@ -67,8 +69,8 @@ public class Client {
                             clientChannel.write ( charset.encode ( "SIGNUP|"+getUserName () ) );
                         }else{
                             System.out.println ( "Already logged, input '/logoff' to log off." );
-                            continue;
                         }
+                        break;
                     case "/chat":
                         if (!isRegister){
                             System.out.println ( "Please login." );
@@ -78,6 +80,7 @@ public class Client {
                             switch(myName.compareTo ( c )){
                                 case -1:
                                     chaTarget = myName + c;
+                                    break;
                                 case 1:
                                     chaTarget = c + myName;
                             }
@@ -85,23 +88,30 @@ public class Client {
                             input="CHAT|"+chaTarget+"|"+c;
                         }
                         isChat=true;
+                        break;
                     case "/group":
                         chaTarget=input.substring ( 7 );
                         input= "GROUP|"+chaTarget;
                         isChat = true;
+                        break;
                     case "/add":
                         input= "ADD|"+chaTarget+"|"+input;
+                        break;
                     case "/history":
                         input= "HISTORY|"+chaTarget;
+                        break;
                     case "/cancel":
                         input= "GROUP|CANCEL";
+                        break;
                         // 退出后服务器更新LastOnline
                     case "/exit":
                         input ="EXIT|"+myName+"|"+chaTarget;
                         isChat = false;
+                        break;
                     case "/logoff":
-                        input ="LOGOFF|"+myName;
+                        input ="LOGOFF|"+myName+"|";
                         isRegister = false;
+                        break;
                     default:
                         System.out.println ( "指令"+input+"无效，输入 /help 查看帮助指南." );
                 }
@@ -147,24 +157,28 @@ public class Client {
                                 stopMainThread();
                             }
                             if(msgBuilder.charAt ( 0 )=='/'){
-//                                String instruction = StringUtils.substringBefore(msgBuilder.toString (),"[|]" );
                                 String[] instruction = msgBuilder.toString().split( "[|]" );
                                 switch (instruction[0]) {
                                     case "/UserName":
                                         clientChannel.write (charset.encode("SIGNUP|"+getUserName()));
+                                        break;
                                     case "/Pwd":
-                                        clientChannel.write ( charset.encode ("PWD|"+instruction[1]+"|"+getSignupPwd()));
+                                        String sc = getSignupPwd ();
+                                        clientChannel.write ( charset.encode ("PWD|"+instruction[1]+"|"+sc));
+                                        break;
                                     case "/loginFail":
                                         System.out.println ( instruction[1] );
                                         clientChannel.write ( charset.encode (  "LOGIN|"+login ()) );
+                                        break;
                                     case "/Success":
                                         isRegister=true;
                                         myName = instruction[1];
                                         key.attach(myName);
                                         System.out.println ( instruction[2]);
+                                        break;
+                                    default:
+                                        System.out.println ( msgBuilder.toString () );
                                 }
-                            }else{
-                                System.out.println ( msgBuilder.toString () );
                             }
                         }
                         ikeys.remove();
@@ -176,7 +190,7 @@ public class Client {
         }
     }
 
-    private void stopMainThread() {
+    public void stopMainThread() {
         flag = false;
     }
 
@@ -192,20 +206,20 @@ public class Client {
 
     public String getUserName(){
         System.out.println ( "Please input your username:" );
-        myName= scanner.nextLine ( );
-        return myName;
+        String name;
+        name = scanner.nextLine ( );
+        return name;
     }
 
     public String getSignupPwd(){
         System.out.println ( "Please input your password:" );
         String pwd1 = scanner.nextLine ();
-        System.out.println("Please confirm your password:");
+        System.out.println("Please confirm your password:" );
         String pwd2 = scanner.nextLine ();
         if (!pwd1.equals(pwd2)) {
             System.out.println("The passwords entered twice do not match. Please input again.\n");
             getSignupPwd ();
         }
-        // Arrays.toString将数组转换成String类型
         return pwd1;
     }
 
