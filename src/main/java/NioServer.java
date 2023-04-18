@@ -1,3 +1,6 @@
+import org.apache.commons.lang.StringUtils;
+
+import javax.xml.crypto.Data;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
@@ -6,131 +9,147 @@ import java.nio.charset.Charset;
 import java.util.*;
 
 public class NioServer {
-    private final Charset charset = Charset.forName("UTF-8"); // 字符集
-    private final ByteBuffer buffer = ByteBuffer.allocate(1024); // 缓存
-    private final Map<String, SocketChannel> onlineUsers = new HashMap<String, SocketChannel>();// 将用户对应的channel对应起来
+    private final Charset charset = Charset.forName("UTF-8");
+    private final ByteBuffer buffer = ByteBuffer.allocate(1024);
+    private final Map<String, SocketChannel> onlineUsers = new HashMap<String, SocketChannel>();
     private final Map<String, String> userInfo = new HashMap<>();
-    private final List<Map<String, SocketChannel>> groupList = new ArrayList<>();
+    private final Map<String, Map<String,Date>> groupMap = new HashMap<>();
     private final List<Message> chatList = new ArrayList<Message>();
     private Selector selector;
-    private ServerSocketChannel server;
 
     public void startServer() throws IOException {
         // NIO server初始化固定流程：5步
-        selector = Selector.open(); // 1.selector open
-        server = ServerSocketChannel.open(); // 2.ServerSocketChannel open
-        server.bind(new InetSocketAddress(8888)); // 3.serverChannel绑定端口
-        server.configureBlocking(false); // 4.设置NIO为非阻塞模式
-        server.register(selector, SelectionKey.OP_ACCEPT);// 5.将channel注册在选择器上
+        selector = Selector.open();
+        ServerSocketChannel server = ServerSocketChannel.open ( );
+        server.bind(new InetSocketAddress(8888));
+        server.configureBlocking(false);
+        server.register(selector, SelectionKey.OP_ACCEPT);
 
         // NIO server处理数据固定流程:实例化
-        SocketChannel client;
+        SocketChannel clientChannel;
         SelectionKey key;
-        Iterator<SelectionKey> iKeys;
+        Iterator<SelectionKey> keyIterator;
 
         while (true) {
             // 1.用select()方法阻塞，一直到有可用连接加入
             selector.select();
             // 2.到了这步，说明有可用连接到底，取出所有可用连接
-            iKeys = selector.selectedKeys().iterator();
-            while (iKeys.hasNext()) {
+            keyIterator = selector.selectedKeys().iterator();
+            while (keyIterator.hasNext()) {
                 // 3.遍历
-                key = iKeys.next();
+                key = keyIterator.next();
                 // 4.对每个连接感兴趣的事做不同的处理
                 if (key.isAcceptable()) {
                     // 对于客户端连接，注册到服务端
-                    client = server.accept(); // 获取客户端首次连接
-                    client.configureBlocking(false);
-                    // 不用注册写，只有当写入量大，或写需要争用时，才考虑注册写事件
-                    client.register(selector, SelectionKey.OP_READ);
-                    System.out.println("客户端：" + client.getRemoteAddress() + "，建立连接");
-                    client.write(charset.encode("请输入用户名和密码(用空格分开)："));
+                    clientChannel = server.accept();
+                    clientChannel.configureBlocking(false);
+                    // Server给Client发消息,设置SelectionKey属性为可读
+                    clientChannel.register(selector, SelectionKey.OP_READ);
+                    System.out.println("客户端：" + clientChannel.getRemoteAddress() + "，建立连接");
+                    clientChannel.write(charset.encode("请登录您的账号。(/signup注册 /login登录)"));
                 }
                 if (key.isReadable()) {
-                    // 通过key取得客户端channel
-                    client = (SocketChannel)key.channel();
-                    StringBuilder msg = new StringBuilder();
-                    // 多次使用的缓存，用前要先清空
+                    clientChannel = (SocketChannel)key.channel();
+                    StringBuilder msgBuilder = new StringBuilder();
                     buffer.clear();
 
                     try {
-                        while (client.read(buffer) > 0) {
-                            // 将写模式转换为读模式，否则读取错误数据
+                        while (clientChannel.read(buffer) > 0) {
                             buffer.flip();
-                            msg.append(charset.decode(buffer));
+                            msgBuilder.append(charset.decode(buffer));
                         }
                     } catch (IOException e) {
-                        // 如果client.read(buffer)抛出异常，说明此客户端主动断开连接。
-                        // 关闭channel
-                        client.close();
-                        // 将channel对应的key置为不可用
+                        clientChannel.close();
                         key.cancel();
-                        // 将问题连接从map中删除
-                        onlineUsers.values().remove(client);
+                        onlineUsers.values().remove(clientChannel);
                         System.out.println(
-                            "用户'" + key.attachment().toString() + "'退出连接，当前用户列表：" + onlineUsers.keySet().toString());
-                        continue; // 跳出循环
+                                "用户'" + key.attachment().toString() + "'退出连接，当前用户列表：" + onlineUsers.keySet().toString());
+                        continue;
                     }
-                    if (msg.length() > 0) {
+                    if (msgBuilder.length() > 0) {
+                        String[] inst = msgBuilder.toString().split( "[|]" );
+                        switch (inst[0]) {
+                            // 注册
+                            case "SIGNUP":
+                                if (userInfo.containsKey ( inst[1] )) {
+                                    clientChannel.write ( charset.encode ( "/UserName|The username already exists." ) );
+                                }else{
+                                    userInfo.put ( inst[1],inst[1] );
+                                    clientChannel.write ( charset.encode ( "/Pwd|"+inst[1]+"|Next step." ) );
+                                }
+                            case "PWD":
+                                userInfo.put ( inst[1],inst[2] );
+                                clientChannel.write ( charset.encode ( "/Success|"+inst[1]+"|SIGNUP SUCCESS." ) );
+                                onlineUsers.put(inst[1], clientChannel);
+                                // 登陆
+                            case "LOGIN":
+                                String s = "";
+                                if (!userInfo.containsKey ( inst[1] )) {
+                                    s= "/loginFail|Invalid username." ;
+                                }else if (!inst[2].equals ( userInfo.get ( inst[1] ) )){
+                                    s= "/loginFail|Wrong password." ;
+                                }else{
+                                    s= "/Success|"+inst[1]+"|LOGIN SUCCESS." ;
+                                    key.attach(inst[1]);
+                                    onlineUsers.put(inst[1], clientChannel);
+                                    String welCome = "\t欢迎'" + inst[1] + "'上线，当前在线人数" + getOnLineNum() + "人。用户列表："
+                                            + onlineUsers.keySet().toString();
+                                    broadCast(welCome + "|");
+                                }
+                                clientChannel.write ( charset.encode ( s ) );
+                            case "LOGOFF":
+                                onlineUsers.remove ( inst[1] );
 
-                        String message = msg.toString();
+                            case "EXIT":
+                                HashMap<String,Date> chat1 =new HashMap<> (  );
+                                chat1.put ( inst[1], new Date() );
+                                groupMap.replace ( inst[2], chat1 );
+                                clientChannel.write ( charset.encode ( "/exit|" ) );
+                            case "CHAT":
 
-                        String[] msgArray = message.split("[|]");
-                        if (msgArray.length == 1) {
-                            String[] login = message.split(" ");
-                            String user = login[0];
-                            String pwd = login[1];
-                            if (userInfo.containsKey(user) && userInfo.get(user).equals(pwd)) {
-                                // |字符来作为消息之间的分割符,防止黏包
-                                client.write(charset.encode("成功登陆 " + user + "|"));
-                                String welCome = "\t欢迎'" + user + "'上线，当前在线人数" + getOnLineNum() + "人。用户列表："
-                                    + onlineUsers.keySet().toString();
-                                broadCast(welCome + "|"); // 给所用用户推送上线信息，包括自己
-                            } else if (userInfo.containsKey(user) && !userInfo.get(user).equals(pwd)) {
-                                client.write(charset.encode("用户名或密码错误，请重新输入用户名和密码："));
-                            } else {
-                                onlineUsers.put(user, client);
-                                key.attach(user); // 给通道定义一个表示符
-                                userInfo.put(user, pwd);
+                                HashMap<String,Date> chats =new HashMap<> (  );
+                                chats.put ( key.attachment ().toString (), new Date() );
+                                chats.put ( inst[2], new Date() );
+                                groupMap.put ( inst[1],chats );
+                                clientChannel.write ( charset.encode ( "Please input your message:" ) );
 
-                                client.write(charset.encode("成功登陆 " + user + "|"));
-                                String welCome = "\t欢迎'" + user + "'上线，当前在线人数" + getOnLineNum() + "人。用户列表："
-                                    + onlineUsers.keySet().toString();
-                                broadCast(welCome + "|");
-                            }
-                        } else if (msgArray.length == 3) {
-                            String user_to = msgArray[0];
-                            String msg_body = msgArray[1];
-                            String user_from = msgArray[2];
-                            // 此处用try-with-resource会自动关闭channel，导致程序错误!!
-                            SocketChannel channel_to = onlineUsers.get(user_to);
-                            Date date = new Date();
-                            Message chatMsg = new Message(date, user_from, user_to, msg_body);
-                            if (user_to.equals("ALL")) {
-                                this.broadCast(new Date() + "---来自'" + user_from + "'的消息： " + msg_body);
+                            case "GROUP":
+                                groupMap.put(inst[1],new HashMap<> ());
+                            case "ADD":
+                                String[] players = inst[2].split( " " );
+                                HashMap<String,Date> groups =new HashMap<> (  );
+                                for (String player : players) {
+                                    groups.put ( player , new Date ( ) );
+                                }
+                                groupMap.put ( inst[1],groups );
+                            case "MESSAGE":
+                                String groupName = inst[1];
+                                String msg = inst[2];
+                                String user_from = key.attachment ().toString ();
+                                SocketChannel channel_to;
+                                Date date = new Date();
+                                Message chatMsg = new Message(date, user_from, groupName, msg);
                                 chatList.add(chatMsg);
-                            } else if (user_to.equals("Server")) {
-                                client.write(charset.encode("   日期              目标      内容"));
-                                for (Message msgQuery : chatList) {
-                                    if (chatMsg.getUserName().equals(user_from)) {
-                                        client.write(charset.encode(msgQuery.getMessage()));
-                                    } else if (chatMsg.getUserTarget().equals(user_to)) {
-                                        client.write(charset.encode(chatMsg.getMessage()));
+                                // 默认类型为Map
+                                Map<String,Date> gps = groupMap.get ( groupName );
+                                for (String value:onlineUsers.keySet()) {
+                                    if(gps.containsKey ( value )){
+                                        channel_to = onlineUsers.get ( value );
+                                        channel_to.write ( charset.encode ( msg ) );
                                     }
                                 }
-                            } else if (channel_to == null) {
-                                client.write(
-                                    charset.encode("用户'" + user_to + "'不存在，当前用户列表：" + onlineUsers.keySet().toString()));
-                            } else {
-                                chatList.add(chatMsg);
-                                System.out.println(chatMsg.getMessage());
-                                channel_to.write(charset.encode(date + "---来自'" + user_from + "'的消息： " + msg_body));
-                            }
+                            case "HISTORY":
+                                String Target = inst[1];
+                                for (Message msgQuery : chatList) {
+                                    if (msgQuery.getUserTarget ().equals(Target)) {
+                                        clientChannel.write(charset.encode(msgQuery.getMessage ()));
+                                    }
+                                }
                         }
                     }
                 }
                 // 5.处理完一次事件后，要显式的移除
-                iKeys.remove();
+                keyIterator.remove();
             }
         }
     }
@@ -142,7 +161,6 @@ public class NioServer {
         for (SelectionKey k : selector.keys()) {
             channel = k.channel();
             // 排除ServerSocketChannel
-            // instanceof 的作用是测试它左边的 对象 是否是它右边的 类的实例
             if (channel instanceof SocketChannel) {
                 count++;
             }
@@ -156,19 +174,10 @@ public class NioServer {
         for (SelectionKey k : selector.keys()) {
             channel = k.channel();
             if (channel instanceof SocketChannel) {
-                SocketChannel client = (SocketChannel)channel;
-                client.write(charset.encode(msg));
+                SocketChannel clientChannel = (SocketChannel)channel;
+                clientChannel.write(charset.encode(msg));
             }
         }
-    }
-
-    public void helpList(SocketChannel channel) throws IOException {
-
-        channel.write(charset.encode("/help \n"));
-    }
-
-    public void group() {
-
     }
 
     public static void main(String[] args) {

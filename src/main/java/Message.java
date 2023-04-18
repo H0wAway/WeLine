@@ -1,5 +1,8 @@
 import java.util.Date;
 
+/**
+ * @author haowei.chu
+ */
 public class Message {
 
     private final String userName;
@@ -16,17 +19,7 @@ public class Message {
     }
 
     public String getMessage() {
-        return date.toString() + "--" + userName + "--" + userTarget + "--" + data + "    ";
-    }
-
-    // 群聊 >=3人，一直getUserMsg
-    public String getUserMsg() {
-        return userName + ": " + data;
-    }
-
-    //
-    public String getTargetMsg() {
-        return userTarget + ": " + data;
+        return date.toString() + "--" + userName + " : " + data + "    ";
     }
 
     public String getUserName() {
