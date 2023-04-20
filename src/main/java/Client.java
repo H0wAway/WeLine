@@ -96,29 +96,31 @@ public class Client {
                                 chaTarget = c + myName;
                             }
                             // c为私聊目标.
-                            clientChannel.write(charset.encode("CHAT|"+chaTarget+"|"+c+"|"));
+                            clientChannel.write(charset.encode("CHAT|"+chaTarget+"|"+c+"|"+myName+"|"));
                         }
                         isChat = true;
                         break;
                     case "/group":
-                        clientChannel.write(charset.encode("GROUP|"+input.substring ( 7 )));
+                        chaTarget=input.substring ( 7 );
+                        clientChannel.write(charset.encode("GROUP|"+chaTarget+"|"+myName+"|"));
                         isChat = true;
                         break;
-//                    case "/add":
-//                        input= "ADD|"+chaTarget+"|"+input;
-//
-//                        break;
+                    case "/add":
+                        String userString = input.substring ( 5 );
+                        clientChannel.write(charset.encode("ADD|"+chaTarget+"|"+userString+"|"));
+                        break;
                     case "/history":
                         clientChannel.write(charset.encode("HISTORY|"+chaTarget));
                         break;
 //                    case "/cancel":
 //                        input= "GROUP|CANCEL";
 //                        break;
-//                        // 退出后服务器更新LastOnline
-//                    case "/exit":
-//                        input ="EXIT|"+myName+"|"+chaTarget;
-//                        isChat = false;
-//                        break;
+
+                    // 退出后服务器更新LastOnline
+                    case "/exit":
+                        isChat=false;
+                        clientChannel.write(charset.encode("EXIT|"+chaTarget+"|"+myName+"|"));
+                        break;
                     case "/logoff":
                         input ="LOGOFF|"+myName+"|";
                         statusCode = 0;
@@ -141,7 +143,13 @@ public class Client {
                         if(!isChat){
                             out.println ( "Please use '/chat' or '/group' to join the chatroom before sending a message" );
                         }else{
-                            clientChannel.write(charset.encode("MESSAGE|"+chaTarget+"|"+input));
+                            try {
+                                // log
+                                out.println ( chaTarget );
+                                clientChannel.write(charset.encode("MESSAGE|"+chaTarget+"|"+input+"|"));
+                            } catch (Exception e) {
+                                out.println(e.getMessage() + "客户端主线程退出连接！！");
+                            }
                         }
                         break;
                     case 3:
@@ -208,13 +216,19 @@ public class Client {
                                     case "/loginFail":
                                         statusCode=1;
                                         out.println ( instruction[1] );
-                                        clientChannel.write ( charset.encode (  "LOGIN|"+login ()) );
+                                        out.println (  "请输入用户名和密码(用空格隔开)：");
                                         break;
                                     case "/Success":
                                         statusCode=2;
                                         myName = instruction[1];
                                         key.attach(myName);
                                         out.println ( instruction[2]);
+                                        break;
+                                    case "/LogOff":
+                                        statusCode=0;
+                                        myName = "";
+                                        out.println ( "成功注销!" );
+                                        out.println ( "请登录您的账号。(/signup注册 /login登录)");
                                         break;
                                     default:
                                         out.println ( "Iron man." );
@@ -233,35 +247,9 @@ public class Client {
         }
     }
 
+
     public void stopMainThread() {
         flag = false;
-    }
-
-
-
-    public String login(){
-        out.println ( "Please input your username:" );
-        String pwd1 = scanner.nextLine ();
-        out.println ( "Please input your password:" );
-        String pwd2 = scanner.nextLine ();
-        return pwd1+"|"+pwd2;
-    }
-
-    public String getUserName(){
-
-        return scanner.nextLine ( );
-    }
-
-    public String getSignupPwd(){
-
-        String pwd1 = scanner.nextLine ();
-        out.println( "Please confirm your password:" );
-        String pwd2 = scanner.nextLine ();
-        if (!pwd1.equals(pwd2)) {
-            out.println("The passwords entered twice do not match. Please input again.\n");
-            getSignupPwd ();
-        }
-        return pwd1;
     }
 
 

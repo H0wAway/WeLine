@@ -1,12 +1,12 @@
 import java.util.Date;
 
-public class GroupUsers {
+public class GroupUsersInfo {
     private String userName;
     private boolean isOnline;
     private Date lastOnline;
 
 
-    public GroupUsers(String userName , boolean isOnline , Date lastOnline) {
+    public GroupUsersInfo(String userName , boolean isOnline , Date lastOnline) {
         this.userName = userName;
         this.isOnline = isOnline;
         this.lastOnline = lastOnline;
@@ -31,6 +31,11 @@ public class GroupUsers {
         this.isOnline = isOnline;
     }
     public void setLastOnline(Date lastOnline) {
+        this.lastOnline = lastOnline;
+    }
+
+    public void setUserInfo(boolean isOnline,Date lastOnline) {
+        this.isOnline = isOnline;
         this.lastOnline = lastOnline;
     }
 }

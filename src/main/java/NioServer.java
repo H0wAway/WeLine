@@ -13,7 +13,7 @@ public class NioServer {
     private final ByteBuffer buffer = ByteBuffer.allocate(1024);
     private final Map<String, SocketChannel> onlineUsers = new HashMap<String, SocketChannel>();
     private final Map<String, String> userInfo = new HashMap<>();
-    private final Map<String, List<GroupUsers>> groupMap = new HashMap<>();
+    private final Map<String, List<GroupUsersInfo>> groupMap = new HashMap<>();
     private final List<Message> chatList = new ArrayList<>();
     private Selector selector;
 
@@ -99,59 +99,79 @@ public class NioServer {
                                 }
                                 clientChannel.write ( charset.encode ( s ) );
                                 break;
-//                            case "LOGOFF":
-//                                onlineUsers.remove ( inst[1] );
-//                                break;
-//
-//                            case "EXIT":
-//                                HashMap<String,Date> chat1 =new HashMap<> (  );
-//                                chat1.put ( inst[1], new Date() );
-//                                groupMap.replace ( inst[2], chat1 );
-//                                clientChannel.write ( charset.encode ( "/exit|" ) );
-//                                break;
-                            // CHAT|chaTarget|msgTarget|
+
+                            // LOGOFF|myName|
+                            case "LOGOFF":
+                                onlineUsers.remove ( inst[1] );
+                                clientChannel.write ( charset.encode ( "/LogOff" ) );
+                                break;
+
+                            // EXIT|chaTarget|myName|
+                            case "EXIT":
+                                for(GroupUsersInfo groupUsersInfo:groupMap.get ( inst[1] )){
+                                    if(groupUsersInfo.getUserName (  ).equals ( inst[2] )){
+                                        groupUsersInfo.setUserInfo ( false, new Date (  ) );
+                                    }
+                                }
+                                clientChannel.write ( charset.encode ( "成功退出当前聊天。" ) );
+                                break;
+
+                            // CHAT|chaTarget|msgTarget|myName|
                             case "CHAT":
                                 String chaTarget = inst[1];
+                                // 如果群聊存在，则放聊天记录。记得把自己状态改为Online.
                                 if(groupMap.containsKey ( chaTarget )){
+                                    for (GroupUsersInfo gUsers : groupMap.get ( chaTarget )) {
+                                        if (gUsers.getUserName ().equals ( inst[3] )) {
+                                            gUsers.setUserInfo ( true,new Date () );
+                                        }
+                                    }
                                     for (Message msgQuery : chatList) {
                                         if (msgQuery.getUserTarget ().equals(chaTarget)) {
                                             clientChannel.write(charset.encode(msgQuery.getMessage ()));
                                         }
                                     }
+                                // 判断用户存不存在（yiHouXie）
                                 } else{
-                                    List<GroupUsers> list = new ArrayList<> ();
-                                    list.add(new GroupUsers (  key.attachment ().toString (), true, new Date() ));
-                                    list.add(new GroupUsers (  inst[2], true, new Date() ));
+                                    List<GroupUsersInfo> list = new ArrayList<> ();
+                                    list.add(new GroupUsersInfo (  inst[3], true, new Date() ));
+                                    list.add(new GroupUsersInfo (  inst[2], false, new Date() ));
                                     groupMap.put ( chaTarget, list );
                                     clientChannel.write ( charset.encode ( "Please input your message: " ) );
                                 }
                                 break;
 
-//                            case "GROUP":
-//                                groupMap.put(inst[1],new HashMap<> ());
-//                                break;
-//
-//                            case "ADD":
-//                                String[] players = inst[2].split( " " );
-//                                HashMap<String,Date> groups =new HashMap<> (  );
-//                                for (String player : players) {
-//                                    groups.put ( player , new Date ( ) );
-//                                }
-//                                groupMap.put ( inst[1],groups );
-//                                break;
+                            case "GROUP":
+                                if(groupMap.containsKey ( inst[1] )){
+                                    for (Message msgQuery : chatList) {
+                                        if (msgQuery.getUserTarget ().equals(inst[1])) {
+                                            clientChannel.write(charset.encode(msgQuery.getMessage ()));
+                                        }
+                                    }
+                                }else {
+                                    groupMap.put ( inst[1],new ArrayList<> () );
+                                    groupMap.get ( inst[1] ).add ( new GroupUsersInfo ( inst[2], true,new Date (  )) );
+                                    clientChannel.write ( charset.encode ( "成功创建并加入群聊, 请用‘/add userName’添加成员。 " ) );
+                                }
+                                break;
+
+                            // 只有群主有权限加人(yiHouXie）
+                            case "ADD":
+                                String[] players = inst[2].split( " " );
+                                for (String player : players) {
+                                    groupMap.get ( inst[1] ).add ( new GroupUsersInfo ( player, false,new Date (  )) );
+                                }
+                                break;
                             case "MESSAGE":
                                 String groupName = inst[1];
                                 String msg = inst[2];
-                                String msgSource = key.attachment ().toString ();
                                 SocketChannel channelTarget;
-                                Date date = new Date();
-                                Message chatMsg = new Message(date, msgSource, groupName, msg);
-                                chatList.add(chatMsg);
-                                // groupMap.get ( groupName )为该组用户（含状况）列表.
-                                for (GroupUsers gUsers : groupMap.get ( groupName )) {
+                                chatList.add(new Message(new Date(), key.attachment ().toString (), groupName, msg));
+                                // groupMap.get ( groupName )为该组用户（含状况）列表List.
+                                for (GroupUsersInfo gUsers : groupMap.get ( groupName )) {
                                     if (gUsers.isOnline ()) {
                                         channelTarget = onlineUsers.get ( gUsers.getUserName () );
-                                        channelTarget.write ( charset.encode ( msg ) );
+                                        channelTarget.write ( charset.encode ( key.attachment ().toString ()+": "+msg ) );
                                     }
                                 }
                                 break;
