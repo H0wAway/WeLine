@@ -22,10 +22,6 @@ public class Message {
         return date.toString() + "--" + userName + " : " + data + "    ";
     }
 
-    public String getUserName() {
-        return userName;
-    }
-
     public String getUserTarget() {
         return userTarget;
     }
