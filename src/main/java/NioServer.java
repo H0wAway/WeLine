@@ -93,9 +93,9 @@ public class NioServer {
                                     s= "/Success|"+inst[1]+"|LOGIN SUCCESS." ;
                                     key.attach(inst[1]);
                                     onlineUsers.put(inst[1], clientChannel);
-                                    String welCome = "\t欢迎'" + inst[1] + "'上线，当前在线人数" + getOnLineNum() + "人。用户列表："
-                                            + onlineUsers.keySet();
-                                    broadCast(welCome + "|");
+//                                    String welCome = "\t欢迎'" + inst[1] + "'上线，当前在线人数" + getOnLineNum() + "人。用户列表："
+//                                            + onlineUsers.keySet();
+//                                    broadCast(welCome + "|");
                                 }
                                 clientChannel.write ( charset.encode ( s ) );
                                 break;
@@ -137,12 +137,19 @@ public class NioServer {
                                     list.add(new GroupUsersInfo (  inst[3], true, new Date() ));
                                     list.add(new GroupUsersInfo (  inst[2], false, new Date() ));
                                     groupMap.put ( chaTarget, list );
+                                    out.println ( groupMap.get ( inst[1] ) );
                                     clientChannel.write ( charset.encode ( "Please input your message: " ) );
                                 }
                                 break;
 
+                            // GROUP|chaTarget|myName|
                             case "GROUP":
                                 if(groupMap.containsKey ( inst[1] )){
+                                    for (GroupUsersInfo gUsers : groupMap.get ( inst[1] )) {
+                                        if (gUsers.getUserName ().equals ( inst[2] )) {
+                                            gUsers.setUserInfo ( true,new Date () );
+                                        }
+                                    }
                                     for (Message msgQuery : chatList) {
                                         if (msgQuery.getUserTarget ().equals(inst[1])) {
                                             clientChannel.write(charset.encode(msgQuery.getMessage ()));
@@ -162,16 +169,19 @@ public class NioServer {
                                     groupMap.get ( inst[1] ).add ( new GroupUsersInfo ( player, false,new Date (  )) );
                                 }
                                 break;
+
+                            //    0   |    1    |   2  |  3  |
+                            // MESSAGE|chaTarget|myName|input|
                             case "MESSAGE":
                                 String groupName = inst[1];
-                                String msg = inst[2];
+                                String msg = inst[3];
                                 SocketChannel channelTarget;
-                                chatList.add(new Message(new Date(), key.attachment ().toString (), groupName, msg));
-                                // groupMap.get ( groupName )为该组用户（含状况）列表List.
+                                chatList.add(new Message(new Date(), inst[2], groupName, msg));
+                                // groupMap.get ( groupName )为该组用户状况列表List.
                                 for (GroupUsersInfo gUsers : groupMap.get ( groupName )) {
                                     if (gUsers.isOnline ()) {
                                         channelTarget = onlineUsers.get ( gUsers.getUserName () );
-                                        channelTarget.write ( charset.encode ( key.attachment ().toString ()+": "+msg ) );
+                                        channelTarget.write ( charset.encode ( inst[2]+": "+msg ) );
                                     }
                                 }
                                 break;

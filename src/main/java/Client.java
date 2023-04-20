@@ -112,9 +112,9 @@ public class Client {
                     case "/history":
                         clientChannel.write(charset.encode("HISTORY|"+chaTarget));
                         break;
-//                    case "/cancel":
-//                        input= "GROUP|CANCEL";
-//                        break;
+                    case "/cancel":
+                        clientChannel.write(charset.encode("GROUP|CANCEL"));
+                        break;
 
                     // 退出后服务器更新LastOnline
                     case "/exit":
@@ -145,8 +145,8 @@ public class Client {
                         }else{
                             try {
                                 // log
-                                out.println ( chaTarget );
-                                clientChannel.write(charset.encode("MESSAGE|"+chaTarget+"|"+input+"|"));
+                                out.println ( "groupName = "+chaTarget );
+                                clientChannel.write(charset.encode("MESSAGE|"+chaTarget+"|"+myName+"|"+input+"|"));
                             } catch (Exception e) {
                                 out.println(e.getMessage() + "客户端主线程退出连接！！");
                             }
